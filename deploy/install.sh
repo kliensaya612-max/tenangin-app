@@ -224,6 +224,9 @@ LOCATIONS=$(cat <<LOC
     location ~ /\.(?!well-known) { deny all; }
 LOC
 )
+# Sembunyikan versi nginx & PHP dari header respons.
+echo "server_tokens off;" > /etc/nginx/conf.d/tenangin-hardening.conf
+echo "expose_php = Off" > "/etc/php/$PHP_VER/fpm/conf.d/99-tenangin.ini"
 # Konfigurasi lama dengan server_name yang sama dipindah agar tidak bentrok.
 mkdir -p "$STATE/old-nginx"
 for f in /etc/nginx/sites-enabled/*; do
