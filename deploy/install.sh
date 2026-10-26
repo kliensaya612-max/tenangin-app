@@ -109,6 +109,7 @@ set_env .env PY_AI_WS_URL "$WS_SCHEME://$HOST"
 if [ -z "$(env_get .env PY_AI_TOKEN)" ]; then set_env .env PY_AI_TOKEN "$(openssl rand -hex 24)"; fi
 
 composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+rm -f bootstrap/cache/packages.php bootstrap/cache/services.php bootstrap/cache/config.php
 grep -q "^APP_KEY=base64" .env || php artisan key:generate --force
 php artisan package:discover --ansi || true
 npm ci --no-audit --no-fund
