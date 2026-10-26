@@ -263,13 +263,31 @@ NGINX
 else
     cat > /etc/nginx/sites-available/tenangin <<NGINX
 server {
-    listen 80 default_server;
+    listen 80$([ -z "$DOMAIN" ] && echo " default_server");
     server_name ${DOMAIN:-_};
 $LOCATIONS
 }
 NGINX
 fi
 ln -sf /etc/nginx/sites-available/tenangin /etc/nginx/sites-enabled/tenangin
+# Akses lewat IP / host asing ditolak: koneksi ditutup tanpa jawaban (hanya nama domain yang dilayani).
+if [ -n "$DOMAIN" ]; then
+    cat > /etc/nginx/sites-available/00-default-deny <<'NGINX'
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 444;
+}
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
+NGINX
+    ln -sf /etc/nginx/sites-available/00-default-deny /etc/nginx/sites-enabled/00-default-deny
+fi
 nginx -t
 systemctl enable nginx
 systemctl restart nginx
