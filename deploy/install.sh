@@ -300,6 +300,7 @@ server {
         nginx -t && systemctl reload nginx
     }
     RESOLVED="$(getent ahostsv4 "$STATUS_HOST" | awk '{print $1; exit}' || true)"
+    if [ -z "$RESOLVED" ] && command -v dig >/dev/null; then RESOLVED="$(dig +short "$STATUS_HOST" @1.1.1.1 | tail -1 || true)"; fi
     if [ "$RESOLVED" = "$SERVER_IP" ]; then
         log "Mengaktifkan https://$STATUS_HOST"
         write_status_vhost 0
