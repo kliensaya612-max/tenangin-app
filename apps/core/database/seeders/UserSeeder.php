@@ -54,6 +54,23 @@ class UserSeeder extends Seeder
             $user->assignRole($role);
         }
 
+        // Default test accounts, one per role (email <role>@gmail.com, name & password = <role>)
+        foreach (['admin', 'user'] as $role) {
+            $account = User::updateOrCreate(
+                ['email' => $role . '@gmail.com'],
+                [
+                    'name' => $role,
+                    'password' => Hash::make($role),
+                    'usia' => 25,
+                    'no_hp' => '081200000000',
+                    'jenis_kelamin' => 'laki-laki',
+                    'kesibukan' => 'profesional',
+                    'koin' => 0,
+                ]
+            );
+            $account->syncRoles($role);
+        }
+
         // Generate additional dummy users (kalau factory-nya sudah disesuaikan dengan kolom yang sama)
         User::factory(10)->create()->each(function ($user) {
             $user->assignRole('user');
