@@ -119,11 +119,13 @@ if ($https) {
 // 8. Disk & memori
 $free = disk_free_space('/'); $total = disk_total_space('/');
 $usedPct = (int) round(100 - $free / $total * 100);
-add('disk', 'Disk', $usedPct >= 95 ? 'down' : ($usedPct >= 85 ? 'warn' : 'ok'), "terpakai $usedPct% (sisa " . round($free / 1073741824, 1) . ' GB)');
+$diskOk = $usedPct < 95;
+add('disk', 'Disk', $diskOk ? 'ok' : 'down', $diskOk ? 'normal' : 'bermasalah');
 $mi = @file_get_contents('/proc/meminfo') ?: '';
 if (preg_match('/MemTotal:\s+(\d+)/', $mi, $a) && preg_match('/MemAvailable:\s+(\d+)/', $mi, $b)) {
     $availPct = (int) round($b[1] / $a[1] * 100);
-    add('mem', 'Memori', $availPct < 5 ? 'down' : ($availPct < 10 ? 'warn' : 'ok'), "tersedia $availPct% (" . round($b[1] / 1048576, 1) . ' GB)');
+    $memOk = $availPct >= 5;
+    add('mem', 'Memori', $memOk ? 'ok' : 'down', $memOk ? 'normal' : 'bermasalah');
 }
 
 $overall = 'ok';
