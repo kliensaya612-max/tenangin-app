@@ -225,7 +225,12 @@ LOCATIONS=$(cat <<LOC
 LOC
 )
 # Sembunyikan versi nginx & PHP dari header respons.
-echo "server_tokens off;" > /etc/nginx/conf.d/tenangin-hardening.conf
+rm -f /etc/nginx/conf.d/tenangin-hardening.conf
+if grep -qE '^[[:space:]]*server_tokens' /etc/nginx/nginx.conf; then
+    sed -i -E 's/^([[:space:]]*)server_tokens[^;]*;.*/\1server_tokens off;/' /etc/nginx/nginx.conf
+else
+    sed -i '0,/http {/s//http {\n\tserver_tokens off;/' /etc/nginx/nginx.conf
+fi
 echo "expose_php = Off" > "/etc/php/$PHP_VER/fpm/conf.d/99-tenangin.ini"
 # Konfigurasi lama dengan server_name yang sama dipindah agar tidak bentrok.
 mkdir -p "$STATE/old-nginx"
