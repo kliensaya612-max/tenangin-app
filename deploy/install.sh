@@ -191,10 +191,18 @@ systemctl restart tenangin-api tenangin-queue
 
 # ---------------------------------------------------------------- nginx
 log "Mengatur nginx"
+STATUS_PHP="$APP_DIR/deploy/status/index.php"
 LOCATIONS=$(cat <<LOC
     root $CORE/public;
     index index.php;
     client_max_body_size 50M;
+
+    # Halaman status mandiri (tidak lewat Laravel) -> /_status
+    location = /_status {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $STATUS_PHP;
+        fastcgi_pass unix:/run/php/php$PHP_VER-fpm.sock;
+    }
 
     location / { try_files \$uri \$uri/ /index.php?\$query_string; }
 
@@ -257,6 +265,58 @@ ln -sf /etc/nginx/sites-available/tenangin /etc/nginx/sites-enabled/tenangin
 nginx -t
 systemctl enable nginx
 systemctl restart nginx
+
+# ---------------------------------------------------------------- status.<domain>
+# Aktif otomatis begitu A record status.<domain> mengarah ke server ini.
+if [ -n "$DOMAIN" ] && [ -f "$STATUS_PHP" ]; then
+    STATUS_HOST="status.$DOMAIN"
+    STATUS_LOC="location / {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $STATUS_PHP;
+        fastcgi_pass unix:/run/php/php$PHP_VER-fpm.sock;
+    }"
+    write_status_vhost() { # write_status_vhost <with_ssl: 0|1>
+        {
+            echo "server {
+    listen 80;
+    listen [::]:80;
+    server_name $STATUS_HOST;
+    location /.well-known/acme-challenge/ { root $CORE/public; }"
+            if [ "$1" = "1" ]; then echo "    location / { return 301 https://\$host\$request_uri; }
+}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name $STATUS_HOST;
+    ssl_certificate $CERT_DIR/fullchain.pem;
+    ssl_certificate_key $CERT_DIR/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    $STATUS_LOC
+}"; else echo "    $STATUS_LOC
+}"; fi
+        } > /etc/nginx/sites-available/tenangin-status
+        ln -sf /etc/nginx/sites-available/tenangin-status /etc/nginx/sites-enabled/tenangin-status
+        nginx -t && systemctl reload nginx
+    }
+    RESOLVED="$(getent ahostsv4 "$STATUS_HOST" | awk '{print $1; exit}' || true)"
+    if [ "$RESOLVED" = "$SERVER_IP" ]; then
+        log "Mengaktifkan https://$STATUS_HOST"
+        write_status_vhost 0
+        if [ -f "$CERT_DIR/fullchain.pem" ]; then
+            if ! openssl x509 -noout -ext subjectAltName -in "$CERT_DIR/fullchain.pem" | grep -q "$STATUS_HOST"; then
+                SANS="-d $DOMAIN"
+                openssl x509 -noout -ext subjectAltName -in "$CERT_DIR/fullchain.pem" | grep -q "www.$DOMAIN" && SANS="$SANS -d www.$DOMAIN"
+                certbot certonly --webroot -w "$CORE/public" --cert-name "$DOMAIN" --expand $SANS -d "$STATUS_HOST" \
+                    -m "${EMAIL:-admin@$DOMAIN}" --agree-tos --no-eff-email -n
+            fi
+            write_status_vhost 1
+        fi
+    else
+        echo "INFO: status.$DOMAIN belum mengarah ke $SERVER_IP (DNS: ${RESOLVED:-tidak ada}). Tambahkan A record, lalu jalankan ulang installer."
+        echo "      Sementara halaman status tersedia di $SCHEME://$HOST/_status"
+    fi
+fi
 
 ufw allow OpenSSH >/dev/null
 ufw allow 'Nginx Full' >/dev/null
