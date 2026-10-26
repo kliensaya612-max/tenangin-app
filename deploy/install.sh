@@ -11,7 +11,7 @@ set -euo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "Jalankan dengan sudo/root."; exit 1; }
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 CORE="$APP_DIR/apps/core"
 API="$APP_DIR/apps/api-ai"
 DOMAIN="${DOMAIN:-}"
